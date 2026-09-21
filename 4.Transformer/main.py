@@ -30,12 +30,12 @@ encoder = nn.TransformerEncoder(
 # 4. 前向传播
 # TODO
 # 将 x 输入 encoder
-
+out=encoder(x)
 
 # 5. 查看结果
 print("Input shape:", x.shape)
 # TODO
 # 输出 Transformer Encoder 的输出 shape
-
+print("Output shape:",out.shape)
 # 6. 尝试修改参数
 # 修改 num_heads 或 num_layers，再运行一次，观察输出 shape 和模型结构是否发生变化。
