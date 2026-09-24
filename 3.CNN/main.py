@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE=64
 learning_rate=1e-4
-EPOCHS=80
+EPOCHS=100
 # 1. 数据处理
 transform = transforms.Compose([
     # TODO
