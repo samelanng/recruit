@@ -51,7 +51,6 @@ optimizer2=optim.Adam(model2.parameters(),lr=learning_rate)
 hist1={"train_loss": [], "test_loss": []}
 hist2={"train_loss": [], "test_loss": []}
 def train(model, optimizer, hist):
-    """把当前模型在训练集上过一遍，并记录训练/测试 loss。"""
     model.train()
     epoch_loss, batch_num=0.0, 0
     for batch_X, batch_y in dataloader:
@@ -111,7 +110,7 @@ print("%-10s %10s %12s %10s %10s %10s %10s" %
     ("模型", "参数量", "训练末loss", "测试MSE", "测试RMSE", "测试MAE", "测试R2"))
 for name, met in [("线性模型", met1), ("MLP", met2)]:    
     print("%-10s %10d %12.4f %10.4f %10.4f %10.4f %10.4f" %          
-(name, met["params"], met["train_loss"], met["MSE"], met["RMSE"], met["MAE"], met["R2"]))
+(name,met["params"],met["train_loss"],met["MSE"],met["RMSE"],met["MAE"],met["R2"]))
 
 plt.rcParams["font.sans-serif"]=["Microsoft YaHei", "SimHei", "DejaVu Sans"]
 plt.rcParams["axes.unicode_minus"]=False
