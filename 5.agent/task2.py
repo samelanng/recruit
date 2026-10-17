@@ -27,6 +27,6 @@ def analyze(text: str) -> str:
     return resp.choices[0].message.content.strip()
 
 if __name__ == "__main__":
-    print("请输入校园文本，直接回车结束：")
+    print("请输入一段校园文本，直接回车结束：")
     print("-" * 50)
     print(analyze(input()))
