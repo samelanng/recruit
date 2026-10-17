@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE=64
 learning_rate=0.05
-EPOCHS=60
+EPOCHS=30
 SEED=42
 PERTURB_SEED=0
 def set_seed(seed):    
@@ -27,25 +27,26 @@ transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485,0.456,0.406],std=[0.229,0.224,0.225])
 ])
-# 训练增强的transform:只作用于训练集
-train_aug_transform = transforms.Compose([
-    transforms.Resize([32, 32]),
-    transforms.RandomRotation(10,fill=128),                                      # 轻微旋转
-    transforms.RandomAffine(degrees=0,translate=(0.1,0.1),
-                            scale=(0.9,1.1), fill=128),                          # 平移 / 缩放
-    transforms.ColorJitter(brightness=0.4,contrast=0.4,saturation=0.2),         # 亮度 / 对比度
-    transforms.RandomApply([transforms.GaussianBlur(kernel_size=3,
-                                                    sigma=(0.5, 1.5))], p=0.3),  # 模糊
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225]),
-    transforms.RandomErasing(p=0.25, scale=(0.02, 0.1)),                          # 部分遮挡
-])
 # 噪声
 class AddGaussianNoise:
     def __init__(self, sigma=0.1):
         self.sigma = sigma
     def __call__(self, x):
         return x+torch.randn_like(x)*self.sigma
+# 训练增强的transform:只作用于训练集
+train_aug_transform = transforms.Compose([
+    transforms.Resize([32, 32]),
+    transforms.RandomRotation(10, fill=128),  #小角度旋转
+    transforms.RandomAffine(degrees=0, translate=(0.1, 0.1),  
+                            scale=(0.9, 1.1), fill=128),     #平移/缩放
+    transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.2),  #亮度/对比度
+    transforms.RandomApply([transforms.GaussianBlur(kernel_size=5,
+                                                    sigma=(0.8, 1.6))], p=0.5), #模糊
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225]),
+    transforms.RandomErasing(p=0.25, scale=(0.02, 0.1)),    #部分遮挡
+    transforms.RandomApply([AddGaussianNoise(sigma=0.15)], p=0.3),  #噪声
+])
 #扰动的transform:只作用于测试集
 #亮度 / 对比度 / 模糊 / 旋转是PIL级操作，放在ToTensor之前；
 #噪声 / 遮挡是张量级操作，必须放在ToTensor之后。
@@ -186,7 +187,6 @@ def train_model(model, criterion, optimizer, train_loader, tag):
 print("\n===== 原CNN =====")
 set_seed(SEED)
 baseline_hist = train_model(model, criterion, optimizer, trainloader, "baseline")
-torch.save(model.state_dict(), os.path.join(os.path.dirname(os.path.abspath(__file__)), "baseline_cnn.pth"))
 # 鲁棒性评测
 def evaluate_on(model, criterion, kind=None):        
     set_seed(PERTURB_SEED)      # 固定种子        
@@ -212,7 +212,6 @@ aug_criterion = nn.CrossEntropyLoss()
 aug_optimizer = torch.optim.SGD(aug_model.parameters(), lr=learning_rate)
 aug_trainloader = build_train_loader(augment=True)
 aug_hist = train_model(aug_model, aug_criterion, aug_optimizer, aug_trainloader, "augmented")
-torch.save(aug_model.state_dict(), os.path.join(os.path.dirname(os.path.abspath(__file__)), "augmented_cnn.pth"))
 aug_acc = evaluate_all(aug_model, aug_criterion, "augmented")
 
 def report(base_acc, aug_acc):    
@@ -255,6 +254,6 @@ def plot_curves(history, title, path):
     plt.tight_layout()        
     plt.savefig(path, dpi=150)        
     plt.show()
-plot_curves(baseline_hist, "Baseline CNN", os.path.join('./data', "fig_baseline_curves.png"))
+plot_curves(baseline_hist, "Baseline CNN", os.path.join('result', "fig_baseline_curves.png"))
 plot_curves(aug_hist, "CNN + Data Augmentation",            
-os.path.join('./data', "fig_augmented_curves.png"))
+os.path.join('result', "fig_augmented_curves.png"))
