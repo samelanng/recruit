@@ -11,9 +11,10 @@ import matplotlib.pyplot as plt
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE=64
 learning_rate=0.05
-EPOCHS=30
+EPOCHS=60
 SEED=42
 PERTURB_SEED=0
+RESULT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "result")
 def set_seed(seed):    
     random.seed(seed)    
     np.random.seed(seed)    
@@ -254,6 +255,5 @@ def plot_curves(history, title, path):
     plt.tight_layout()        
     plt.savefig(path, dpi=150)        
     plt.show()
-plot_curves(baseline_hist, "Baseline CNN", os.path.join('result', "fig_baseline_curves.png"))
-plot_curves(aug_hist, "CNN + Data Augmentation",            
-os.path.join('result', "fig_augmented_curves.png"))
+plot_curves(baseline_hist, "Baseline CNN", os.path.join(RESULT_DIR, "fig_baseline_curves.png"))
+plot_curves(aug_hist, "CNN + Data Augmentation",os.path.join(RESULT_DIR, "fig_augmented_curves.png"))
