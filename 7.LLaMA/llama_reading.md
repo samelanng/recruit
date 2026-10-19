@@ -10,7 +10,11 @@ LLaMA 使用的是哪一类 Transformer 架构？它的训练目标是什么？�
 2. LLaMA 相比你已经学习的 Transformer 做了哪些关键改动？​
 请说明 RMSNorm、SwiGLU、RoPE 分别解决或改善了什么问题。无需推导公式，但需要说明它们在模型中的作用。
 
-`Pre-normalization和RMSNorm`：原始Transformer是先算完子层、再对输出做LayerNorm，LLaMA改成对每个子层入口先归一化，并改用RMSNorm归一化函数(只按均方根缩放，比LayerNorm少了减均值和bias);`SwiGLU激活`：原始Transformer中的FFN是Linear→ReLU→Linear，而SwiGLU是门控结构：一路过 SiLU当“闸门”，另一路直接线性，两者相乘再降维，使得表达力更强，因此在同等算力下效果更好；代价是多了矩阵，所以论文把中间维度从 4d 缩到 2/3·4d 来抵消参数增长;`RoPE`：没有位置嵌入(position embedding),而替换成旋转位置嵌入(RoPE)。原始Transformer用固定的（或可学习的）绝对位置向量，加到输入嵌入上，只在最底层注入一次，它相对距的建模是隐式的，且很难外推到训练时没见过的长度。RoPE改为在每一层的 Q/K 上做旋转，让注意力分数只依赖两个位置的相对距离，位置表达更自然。
+`Pre-normalization和RMSNorm`：原始Transformer是先算完子层、再对输出做LayerNorm，LLaMA改成对每个子层入口先归一化（即把Normalization从输出移到了输入位置），并改用RMSNorm归一化函数(只按均方根缩放，比LayerNorm少了减均值和bias)。
+![alt text](image-1.png)
+`SwiGLU激活`：原始Transformer中的FFN是Linear→ReLU→Linear，而SwiGLU是门控结构：一路过 SiLU当“闸门”，另一路直接线性，两者相乘再降维，使得表达力更强，因此在同等算力下效果更好；代价是多了矩阵，所以论文把中间维度从 4d 缩到 2/3·4d 来抵消参数增长。
+![alt text](image-2.png)
+`RoPE`：没有位置嵌入(position embedding),而替换成旋转位置嵌入(RoPE)。原始Transformer用固定的（或可学习的）绝对位置向量，加到输入嵌入上，只在最底层注入一次，它相对距的建模是隐式的，且很难外推到训练时没见过的长度。RoPE改为在每一层的 Q/K 上做旋转，让注意力分数只依赖两个位置的相对距离，位置表达更自然。
 
 3. 为什么 LLaMA 不只是“参数更多的 Transformer”？​
 论文如何处理训练数据来源、数据配比、训练 token 数与模型参数量之间的关系？为什么足够多且高质量的数据对小一些的模型也很重要？​
