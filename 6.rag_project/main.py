@@ -16,48 +16,50 @@ EMBED_MODEL="text-embedding-v3"
 LOCAL_EMBED_MODEL="BAAI/bge-small-zh-v1.5"
 CHAT_MODEL="qwen-plus"
 client=OpenAI(api_key=os.getenv("DASHSCOPE_API_KEY"),base_url="https://dashscope.aliyuncs.com/compatible-mode/v1")
-_local_model=None
+_local_model=None#本地Embedding模型的缓存变量
 
+#获取本地Embedding向量
 def get_local_model():
-    global _local_model
+    global _local_model #全局变量
     if _local_model is None:
         from sentence_transformers import SentenceTransformer
         _local_model=SentenceTransformer(LOCAL_EMBED_MODEL)
     return _local_model
-    
+#读取知识库   
 def load_documents(kb_dir:Path):
     docs=[]
-    for path in sorted(kb_dir.glob("*.md")):
-        docs.append((path.name,path.read_text(encoding="utf-8")))
+    for path in sorted(kb_dir.glob("*.md")):  #所有md文件 sort保证文件按名称稳定排序，每次运行结果一致
+        docs.append((path.name,path.read_text(encoding="utf-8")))#列表元素为文本名+文本内容
     return docs
-
+#分片
 def split_documents(docs,chunk_size=300,overlap=60):
-    chunks=[]
+    chunks=[]#缓冲区
     for name,text in docs:
-        text=text.replace("\r\n","\n").strip()#换行符的替换，strip()删除字符串开头结尾的空白字符
-        paras=[p.strip() for p in re.split(r"\n\s*\n",text) if p.strip()]#按段落切分
+        text=text.replace("\r\n","\n").strip()#把\r\n统一为\n，strip()删除字符串开头结尾的空白字符
+        paras=[p.strip() for p in re.split(r"\n\s*\n",text) if p.strip()]#正则按段落切分 r"\n\s*\n"指的是一个换行符+若干空白字符+换行符，匹配段落之间的空行分隔符
         cur=""
         for p in paras:
+            #要切分
             if len(p)>chunk_size:
                 if cur:#有遗留内容
                     chunks.append((name,cur))
                     cur=""
                 for i in range(0,len(p),chunk_size-overlap):
                     chunks.append((name,p[i:i+chunk_size]))
-                    if i+chunk_size>=len(p):
+                    if i+chunk_size>=len(p):#判断有没有达到末尾
                         break
                 continue
             if not cur:
                 cur=p
-            elif len(cur)+len(p)+2<=chunk_size:
+            elif len(cur)+len(p)+2<=chunk_size:#判断把当前段落接上去后是否还放得下 加2是因为两段之间要插入两个换行符\n\n
                 cur=cur+"\n\n"+p
             else:
                 chunks.append((name,cur))
-                cur=(cur[-overlap:]+"\n\n"+p) if overlap else p
+                cur=(cur[-overlap:]+"\n\n"+p) if overlap else p #新文本块从上一块的末尾截取60个字符作为重叠内容，再拼接当前段落；如果overlap为0，就直接从当前段落开始
         if cur:
             chunks.append((name,cur))
     return chunks
-#将文本转换为向量，形成向量索引
+#定义建立索引的函数 
 def build_index(chunks,backend="auto"):
     texts=[c[1] for c in chunks]#c[0]为文本名，c[1]为文本内容
     if backend in("auto","local"):
@@ -69,26 +71,26 @@ def build_index(chunks,backend="auto"):
             if backend=="local":
                 raise
             print("本地Embedding不可用,改用API Embedding")
-    vectors=[]
+    vectors=[]#列表内容为API返回的向量
     #批量处理
     for i in range(0,len(texts),10):
         batch=texts[i:i+10]
-        resp=client.embeddings.create(model=EMBED_MODEL,input=batch)
-        vectors.extend([d.embedding for d in resp.data])
+        resp=client.embeddings.create(model=EMBED_MODEL,input=batch)#调用Embedding接口
+        vectors.extend([d.embedding for d in resp.data])#从响应中取出每一条向量，并按原顺序加入总列表
     arr=np.asarray(vectors,dtype=np.float32)
-    arr/=np.linalg.norm(arr,axis=1,keepdims=True)#归一化(np.linalg.norm计算向量长度，axis=1按行计算)
+    arr/=np.linalg.norm(arr,axis=1,keepdims=True)#归一化(np.linalg.norm计算向量长度，axis=1按行计算，keepdims=True保持二维形状)，这样之后点积就等于余弦相似度
     return arr, "api:%s" % EMBED_MODEL
-
+#用户问题转换为向量
 def embed_query(question, backend):
-    if backend.startswith("local"):
-        v=get_local_model().encode([question], normalize_embeddings=True)#问题向量化
+    if backend.startswith("local"): #必须用同一种Embedding模型编码问题，否则空间不一致，相似度没有意义
+        v=get_local_model().encode([question], normalize_embeddings=True)#问题向量化（本地模型）
         return np.asarray(v, dtype=np.float32)
     resp=client.embeddings.create(model=EMBED_MODEL, input=[question])
     v=np.asarray([resp.data[0].embedding], dtype=np.float32)
     v/=np.linalg.norm(v, axis=1, keepdims=True)
     return v
 
-
+#召回 相似度检索
 def retrieve(question,chunks,index,backend,topk=4):
     qv=embed_query(question,backend)
     scores=(index@qv.T).ravel()#矩阵乘法计算向量相似度，raval()把二维数组转化成一维
@@ -114,35 +116,35 @@ PROMPT = """资料：
 参考资料：
 - 文件名
 """
-
+#生成答案
 def generate_answer(question, hits):
     context="\n\n".join("【%s】\n%s" % (h["source"], h["text"]) for h in hits)#将多个检索结果拼接成一段完整的
     resp=client.chat.completions.create(
         model=CHAT_MODEL,
         messages=[
             {"role":"system","content":SYSTEM_PROMPT},
-            {"role":"user","content":PROMPT.format(question=question, context=context)},
+            {"role":"user","content":PROMPT.format(question=question, context=context)},#用户消息，把问题和拼接好的资料填入模板
         ],
         temperature=0.1,
     )
     return resp.choices[0].message.content.strip()#第一个候选回答
 
 def main():
-    #添加参数
+    #添加命令行参数解释器
     ap=argparse.ArgumentParser()
     ap.add_argument("--question",type=str,default=None)
     ap.add_argument("--topk",type=int,default=DEFAULT_TOPK)
     ap.add_argument("--backend",default="auto",choices=["auto","api","local"])
     ap.add_argument("--chunk-size",type=int,default=CHUNK_SIZE)
     ap.add_argument("--overlap",type=int,default=CHUNK_OVERLAP)
-    args=ap.parse_args()
+    args=ap.parse_args()#真正解析命令行，把用户输入保存到args对象中
     docs=load_documents(KB_DIR)
     chunks=split_documents(docs,args.chunk_size,args.overlap)
     index,backend=build_index(chunks,args.backend)
     print("已读取文件：%s"%"、".join("%s(%d字)"%(n,len(t)) for n,t in docs))
     print("共切分为%d个文本块,Embedding后端:%s"%(len(chunks),backend))
     question=args.question
-    one_shot=args.question is not None
+    one_shot=args.question is not None  #判断是否为单次问答模式,只要命令行传了--question，就只回答一次然后退出
     while True:
         if question is None:
             try:
