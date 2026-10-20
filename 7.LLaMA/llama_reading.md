@@ -68,7 +68,7 @@ zero-shot:提供任务的文字描述和测试示例,模型要么通过开放式
 | 生效方式 | 每次推理现拼提示词 | 训练完固化成新权重 |
 | 代价 | 提示词变长、占上下文 | 训练算力，存储一份新权重 |
 
-- 5.预训练模型为什么不能直接等同于聊天助手？​结合论文中的 instructionfine-tuning 内容，说明 Base Model 与 Instruct Model 的区别。指令微调改变了模型的哪些部分，又没有改变哪些部分？
+5. 预训练模型为什么不能直接等同于聊天助手？​结合论文中的 instructionfine-tuning 内容，说明 Base Model 与 Instruct Model 的区别。指令微调改变了模型的哪些部分，又没有改变哪些部分？
 
 ①Base Model只被训练过预测下一个 token。
 ②
