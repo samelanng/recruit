@@ -22,7 +22,8 @@ hidden_states                (batch, seq_len, 768)
 3. 你的复现是否完全成功？如果没有，瓶颈来自数据、显存、训练时间、环境还是模型效果？
 流程复现成功，但在效果上仍有缺陷。瓶颈可能来自于数据的覆盖性不够；模型容量（64M的参数约为 LLaMA-7B的1%）能学会输出格式（正确的代码块、分步推导结构），却无法完成真实计算。显存影响了训练速度
 
-
+![pretrain_loss](results/loss_pretrain.png)
+![sft_loss](results/loss_sft.png)
 
 
 ## 预训练与STF模型的推理对比
